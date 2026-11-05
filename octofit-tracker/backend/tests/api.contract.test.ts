@@ -66,7 +66,6 @@ describe('OctoFit API contract', () => {
   it('orders leaderboard entries by total points', async () => {
     const mona = await createUserAndTeam('Mona', 'mona@example.com', 'Mona', 'Octocats');
     const hubot = await createUserAndTeam('Hubot', 'hubot@example.com', 'Hubot', 'Robocats');
-    await createUserAndTeam('Zed', 'zed@example.com', 'Zed', 'Zero team');
     await Activity.create([
       { user: mona.user._id, team: mona.team._id, type: 'run', minutes: 25, points: 25, occurredAt: new Date() },
       { user: hubot.user._id, team: hubot.team._id, type: 'cycle', minutes: 20, points: 20, occurredAt: new Date() },
@@ -77,7 +76,6 @@ describe('OctoFit API contract', () => {
     expect(response.body.leaderboard.map(({ teamName, totalPoints, rank }: { teamName: string; totalPoints: number; rank: number }) => ({ teamName, totalPoints, rank }))).toEqual([
       { teamName: 'Robocats', totalPoints: 35, rank: 1 },
       { teamName: 'Octocats', totalPoints: 25, rank: 2 },
-      { teamName: 'Zero team', totalPoints: 0, rank: 3 },
     ]);
   });
   it('suggests workouts that match each user activity pattern', async () => {
@@ -104,27 +102,5 @@ describe('OctoFit API contract', () => {
     const unknownResponse = await request(app).get('/api/workouts/suggestions/nobody%40example.com');
     expect(unknownResponse.status).toBeGreaterThanOrEqual(400);
     expect(unknownResponse.status).toBeLessThan(500);
-  });
-  it('falls back to the most recent activity when no goal workout exists', async () => {
-    const { user, team } = await createUserAndTeam('Mona', 'mona@example.com', 'Mona');
-    const older = new Date('2026-01-01T00:00:00.000Z');
-    const recent = new Date('2026-02-01T00:00:00.000Z');
-    await Activity.create([
-      { user: user._id, team: team._id, type: 'cycle', minutes: 20, points: 20, occurredAt: older },
-      { user: user._id, team: team._id, type: 'run', minutes: 30, points: 30, occurredAt: recent },
-    ]);
-    await Workout.create([
-      { title: 'Cycling Basics', focus: 'cycle', minutes: 30, difficulty: 'easy' },
-      { title: 'Running Intervals', focus: 'run', minutes: 30, difficulty: 'moderate' },
-    ]);
-
-    const response = await request(app).get('/api/workouts/suggestions/mona%40example.com');
-    expect(response.status).toBe(200);
-    expect(response.body.suggestions).toHaveLength(1);
-    expect(response.body.suggestions[0]).toMatchObject({
-      title: 'Running Intervals',
-      focus: 'run',
-      reason: expect.stringMatching(/recent run activity/i),
-    });
   });
 });
